@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Census Normalizer</title>
+<style>
+  :root{
+    --ink:#10151c; --slate:#2b3542; --mute:#6b7785; --line:#dce2e8;
+    --paper:#f6f7f9; --card:#ffffff; --accent:#1f6feb; --accent-soft:#e8f0fe;
+    --ok:#1a7f56; --ok-soft:#e3f5ec; --warn:#b7791f; --warn-soft:#fdf3e2;
+    --crit:#c0392b; --crit-soft:#fbe9e7;
+    --mono:'SFMono-Regular',ui-monospace,'Cascadia Code',Consolas,monospace;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--sans);background:var(--paper);color:var(--ink);
+    line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:40px 24px 80px}
+
+  header{border-bottom:1px solid var(--line);padding-bottom:24px;margin-bottom:32px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--mute)}
+  h1{font-size:30px;font-weight:680;letter-spacing:-.02em;margin:6px 0 8px}
+  .sub{color:var(--slate);font-size:15px;max-width:62ch}
+
+  .uploader{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:22px;margin-bottom:28px}
+  .uploader h2{font-size:13px;font-weight:600;text-transform:uppercase;
+    letter-spacing:.06em;color:var(--mute);margin-bottom:14px}
+  .drop{border:1.5px dashed var(--line);border-radius:10px;padding:30px;
+    text-align:center;cursor:pointer;transition:.15s;background:var(--paper)}
+  .drop:hover{border-color:var(--accent);background:var(--accent-soft)}
+  .drop.drag{border-color:var(--accent);background:var(--accent-soft)}
+  .drop p{color:var(--mute);font-size:14px}
+  .drop strong{color:var(--accent)}
+  .samples{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .samples span{font-size:12px;color:var(--mute);font-family:var(--mono)}
+  .chip{font-family:var(--mono);font-size:12px;padding:5px 11px;border:1px solid var(--line);
+    border-radius:6px;background:var(--card);cursor:pointer;transition:.12s}
+  .chip:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+
+  .results{display:none}
+  .results.show{display:block;animation:fade .35s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .verdict{display:flex;align-items:stretch;gap:0;border-radius:12px;overflow:hidden;
+    border:1px solid var(--line);margin-bottom:24px;background:var(--card)}
+  .score{flex:0 0 200px;padding:26px 24px;display:flex;flex-direction:column;
+    justify-content:center;align-items:center;border-right:1px solid var(--line)}
+  .score .num{font-family:var(--mono);font-size:52px;font-weight:680;line-height:1;
+    letter-spacing:-.03em}
+  .score .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--mute);margin-top:8px}
+  .verdict-body{flex:1;padding:22px 26px;display:flex;flex-direction:column;
+    justify-content:center;gap:10px}
+  .badge{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;
+    padding:6px 12px;border-radius:20px;width:fit-content}
+  .badge.ok{background:var(--ok-soft);color:var(--ok)}
+  .badge.no{background:var(--crit-soft);color:var(--crit)}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+  .counts{display:flex;gap:22px;font-size:13px;color:var(--slate)}
+  .counts b{font-family:var(--mono);font-weight:600;color:var(--ink)}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}.score{flex-basis:150px}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:20px;overflow:hidden}
+  .panel h3{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
+    color:var(--mute);margin-bottom:14px;display:flex;justify-content:space-between}
+  .panel h3 .meta{font-family:var(--mono);color:var(--accent);text-transform:none;
+    letter-spacing:0}
+
+  .map-row{display:grid;grid-template-columns:1fr 22px 1fr;align-items:center;gap:8px;
+    padding:7px 0;border-bottom:1px solid var(--paper);font-family:var(--mono);font-size:12.5px}
+  .map-row:last-child{border-bottom:none}
+  .map-row .from{color:var(--slate);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .map-row .arrow{color:var(--accent);text-align:center}
+  .map-row .to{color:var(--ink);font-weight:600}
+
+  .check{display:flex;gap:11px;padding:9px 0;border-bottom:1px solid var(--paper);align-items:flex-start}
+  .check:last-child{border-bottom:none}
+  .sev{font-family:var(--mono);font-size:10px;font-weight:600;padding:3px 7px;border-radius:5px;
+    text-transform:uppercase;letter-spacing:.04em;flex:0 0 auto;margin-top:1px}
+  .sev.critical{background:var(--crit-soft);color:var(--crit)}
+  .sev.warning{background:var(--warn-soft);color:var(--warn)}
+  .check .ctext{font-size:13px}
+  .check .ctext b{font-family:var(--mono);font-size:12.5px}
+  .check .ctext span{color:var(--mute);display:block;font-size:12px;margin-top:1px}
+  .clean-note{font-size:13px;color:var(--ok);display:flex;align-items:center;gap:8px;
+    font-weight:500;padding:6px 0}
+
+  .tablewrap{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    overflow:hidden}
+  .tablewrap h3{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
+    color:var(--mute);padding:18px 20px 12px}
+  .scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+  th{text-align:left;padding:9px 14px;background:var(--paper);color:var(--mute);
+    font-weight:600;text-transform:uppercase;font-size:10.5px;letter-spacing:.05em;
+    border-bottom:1px solid var(--line);position:sticky;top:0;white-space:nowrap}
+  td{padding:8px 14px;border-bottom:1px solid var(--paper);white-space:nowrap;color:var(--slate)}
+  tr.flagged td{background:var(--crit-soft)}
+  tr.flagged td:first-child{box-shadow:inset 3px 0 0 var(--crit)}
+  .issue-cell{color:var(--crit);font-size:11px}
+  .empty{color:var(--mute);font-style:italic}
+
+  .loading{display:none;text-align:center;padding:40px;color:var(--mute);
+    font-family:var(--mono);font-size:13px}
+  .loading.show{display:block}
+  .spin{display:inline-block;width:16px;height:16px;border:2px solid var(--line);
+    border-top-color:var(--accent);border-radius:50%;animation:rot .7s linear infinite;
+    vertical-align:middle;margin-right:8px}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);
+    font-size:12px;color:var(--mute);font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Underwriting Data · Ingestion</div>
+    <h1>Census Normalizer</h1>
+    <p class="sub">Brokers send employee census files in every format imaginable. This turns
+      any of them into one clean, validated schema the underwriting engine can price — and
+      flags the rows a human needs to look at before a quote goes out.</p>
+  </header>
+
+  <div class="uploader">
+    <h2>Upload a census file</h2>
+    <div class="drop" id="drop">
+      <p><strong>Choose a file</strong> or drag it here — CSV or XLSX</p>
+    </div>
+    <input type="file" id="file" accept=".csv,.xlsx" hidden>
+    <div class="samples">
+      <span>or try a sample:</span>
+      <span class="chip" data-s="broker_a">broker_a.csv</span>
+      <span class="chip" data-s="broker_b">broker_b.csv</span>
+      <span class="chip" data-s="broker_c">broker_c.csv (messy)</span>
+      <span class="chip" data-s="broker_d">broker_d.xlsx</span>
+    </div>
+  </div>
+
+  <div class="loading" id="loading"><span class="spin"></span>Normalizing & validating…</div>
+
+  <div class="results" id="results">
+    <div class="verdict">
+      <div class="score" id="scoreBox">
+        <div class="num" id="scoreNum">—</div>
+        <div class="lbl">Quality Score</div>
+      </div>
+      <div class="verdict-body">
+        <div id="badge"></div>
+        <div class="counts">
+          <div>Rows <b id="cRows">0</b></div>
+          <div>Clean <b id="cClean">0</b></div>
+          <div>Flagged <b id="cFlag">0</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <h3>Column Mapping <span class="meta" id="mapMeta"></span></h3>
+        <div id="mapping"></div>
+      </div>
+      <div class="panel">
+        <h3>Validation Checks</h3>
+        <div id="checks"></div>
+      </div>
+    </div>
+
+    <div class="tablewrap">
+      <h3>Clean canonical output — flagged rows highlighted</h3>
+      <div class="scroll"><table id="tbl"></table></div>
+    </div>
+  </div>
+
+  <footer>Synthetic data only · No PHI · Python · pandas · FastAPI · dbt-style models · Great Expectations</footer>
+</div>
+
+<script>
+const SAMPLES = {}; // filled by embedded data when running standalone
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('file');
+
+drop.onclick = () => fileInput.click();
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('drag'); };
+drop.ondragleave = () => drop.classList.remove('drag');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('drag');
+  if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]); };
+fileInput.onchange = () => { if (fileInput.files[0]) upload(fileInput.files[0]); };
+document.querySelectorAll('.chip').forEach(c =>
+  c.onclick = () => loadSample(c.dataset.s));
+
+async function upload(file){
+  const fd = new FormData(); fd.append('file', file);
+  show('loading');
+  try{
+    const r = await fetch('/normalize', {method:'POST', body:fd});
+    if(!r.ok) throw new Error((await r.json()).detail || 'failed');
+    render(await r.json());
+  }catch(err){ alert('Could not process file: '+err.message); hide('loading'); }
+}
+
+async function loadSample(name){
+  // fetch the raw sample from the server's static raw dir via /normalize
+  show('loading');
+  try{
+    const map = {broker_a:'broker_a_census.csv', broker_b:'broker_b_census.csv',
+                 broker_c:'broker_c_census.csv', broker_d:'broker_d_census.xlsx'};
+    const resp = await fetch('/sample/'+name);
+    const blob = await resp.blob();
+    const f = new File([blob], map[name]);
+    await upload(f);
+  }catch(err){ alert('Sample unavailable: '+err.message); hide('loading'); }
+}
+
+function show(id){document.getElementById(id).classList.add('show');}
+function hide(id){document.getElementById(id).classList.remove('show');}
+
+function render(d){
+  hide('loading');
+  const rep = d.report;
+  document.getElementById('scoreNum').textContent = rep.quality_score;
+  const sc = rep.quality_score;
+  const col = sc >= 90 ? 'var(--ok)' : sc >= 70 ? 'var(--warn)' : 'var(--crit)';
+  document.getElementById('scoreNum').style.color = col;
+
+  const badge = document.getElementById('badge');
+  if(rep.ready_for_underwriting){
+    badge.innerHTML = '<div class="badge ok"><span class="dot"></span>Ready for underwriting</div>';
+  }else{
+    badge.innerHTML = '<div class="badge no"><span class="dot"></span>Needs review before quoting</div>';
+  }
+  document.getElementById('cRows').textContent = rep.rows_total;
+  document.getElementById('cClean').textContent = rep.rows_clean;
+  document.getElementById('cFlag').textContent = rep.rows_flagged;
+
+  // mapping
+  const m = d.column_mapping;
+  document.getElementById('mapMeta').textContent =
+    Object.keys(m).length + ' mapped';
+  document.getElementById('mapping').innerHTML = Object.entries(m).map(([from,to])=>
+    `<div class="map-row"><span class="from">${esc(from)}</span>
+     <span class="arrow">→</span><span class="to">${to}</span></div>`).join('');
+
+  // checks
+  const checks = rep.checks;
+  document.getElementById('checks').innerHTML = checks.length === 0
+    ? '<div class="clean-note"><span class="dot" style="background:var(--ok)"></span>All checks passed — no issues found</div>'
+    : checks.map(c=>
+      `<div class="check"><span class="sev ${c.severity}">${c.severity}</span>
+       <div class="ctext"><b>${c.check}</b> · ${c.count}<span>${esc(c.message)}</span></div></div>`).join('');
+
+  // table
+  const rows = d.clean_preview;
+  const flaggedIssues = new Set();
+  rows.forEach((r,i)=>{ if(r.row_issues) flaggedIssues.add(i); });
+  const cols = ['employee_id','first_name','last_name','date_of_birth','gender',
+                'relationship','zip_code','state','row_issues'];
+  let html = '<thead><tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr></thead><tbody>';
+  rows.forEach(r=>{
+    const flag = r.row_issues && r.row_issues.length>0;
+    html += `<tr class="${flag?'flagged':''}">`+cols.map(c=>{
+      let v = r[c];
+      if(v===null||v===undefined||v==='') return `<td class="empty">—</td>`;
+      if(c==='row_issues') return `<td class="issue-cell">${esc(v)}</td>`;
+      return `<td>${esc(v)}</td>`;
+    }).join('')+'</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('tbl').innerHTML = html;
+
+  show('results');
+  document.getElementById('results').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function esc(s){return String(s).replace(/[&<>"]/g,c=>(
+  {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+</script>
+</body>
+</html>

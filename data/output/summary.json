@@ -1,0 +1,38 @@
+[
+  {
+    "file": "broker_a_census.csv",
+    "group_id": "G001",
+    "rows": 68,
+    "score": 100.0,
+    "critical": 0,
+    "warnings": 0,
+    "ready": true
+  },
+  {
+    "file": "broker_b_census.csv",
+    "group_id": "G002",
+    "rows": 72,
+    "score": 100.0,
+    "critical": 0,
+    "warnings": 0,
+    "ready": true
+  },
+  {
+    "file": "broker_c_census.csv",
+    "group_id": "G003",
+    "rows": 60,
+    "score": 76.7,
+    "critical": 3,
+    "warnings": 5,
+    "ready": false
+  },
+  {
+    "file": "broker_d_census.xlsx",
+    "group_id": "G004",
+    "rows": 71,
+    "score": 100.0,
+    "critical": 0,
+    "warnings": 0,
+    "ready": true
+  }
+]

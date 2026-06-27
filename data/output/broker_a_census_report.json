@@ -1,0 +1,10 @@
+{
+  "rows_total": 68,
+  "rows_clean": 68,
+  "rows_flagged": 0,
+  "critical_issues": 0,
+  "warning_issues": 0,
+  "quality_score": 100.0,
+  "checks": [],
+  "ready_for_underwriting": true
+}
